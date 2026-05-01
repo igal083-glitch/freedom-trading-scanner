@@ -188,7 +188,7 @@ export default function App() {
 
         <tbody>
           {rows.map((r) => (
-            <tr key={r.symbol}>
+            <tr key={r.symbol} className={`row-${r.status.toLowerCase()}`}>
               <td className="ticker">{r.symbol}</td>
               <td>{r.price ? money(r.price) : '-'}</td>
               <td>{r.changePct.toFixed(2)}%</td>
