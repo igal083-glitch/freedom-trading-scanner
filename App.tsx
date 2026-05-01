@@ -20,27 +20,46 @@ type Row = {
   action: string;
 };
 
+const stockMap: Record<string, Row> = {
+  ACRS: {
+    ticker: "ACRS",
+    price: "4.36",
+    change5d: "3.10%",
+    range: "12.40%",
+    compression: "YES",
+    higherLows: "YES",
+    nearHigh: "YES",
+    score: 72,
+    status: "CONTINUATION",
+    setup: "Pullback Continuation / המשכיות",
+    entryZone: "$3.80 – $4.20",
+    invalidation: "$3.50",
+    trigger: "Mini base / Break above $4.70",
+    action: "להמתין לאישור",
+  },
+
+  UAMY: {
+    ticker: "UAMY",
+    price: "12.02",
+    change5d: "6.40%",
+    range: "8.00%",
+    compression: "YES",
+    higherLows: "YES",
+    nearHigh: "YES",
+    score: 78,
+    status: "CONTINUATION",
+    setup: "Range Breakout Attempt / המשכיות",
+    entryZone: "$10.80 – $11.30",
+    invalidation: "$9.55",
+    trigger: "Close above $12.20–$12.50 with volume",
+    action: "לא לרדוף — לחכות לאישור",
+  },
+};
+
 function analyzeTicker(tickerRaw: string): Row {
   const ticker = tickerRaw.toUpperCase().trim();
 
-  if (ticker === "ACRS") {
-    return {
-      ticker,
-      price: "4.36",
-      change5d: "3.10%",
-      range: "12.40%",
-      compression: "YES",
-      higherLows: "YES",
-      nearHigh: "YES",
-      score: 72,
-      status: "CONTINUATION",
-      setup: "Pullback Continuation / המשכיות",
-      entryZone: "$3.80 – $4.20",
-      invalidation: "$3.50",
-      trigger: "Mini base / Break above $4.70",
-      action: "להמתין",
-    };
-  }
+  if (stockMap[ticker]) return stockMap[ticker];
 
   return {
     ticker,
@@ -73,8 +92,8 @@ function statusClass(status: Status) {
 }
 
 export default function App() {
-  const [ticker, setTicker] = useState("ACRS");
-  const [rows, setRows] = useState<Row[]>([analyzeTicker("ACRS")]);
+  const [ticker, setTicker] = useState("UAMY");
+  const [rows, setRows] = useState<Row[]>([analyzeTicker("UAMY")]);
 
   const counts = rows.reduce(
     (acc, r) => {
@@ -116,9 +135,9 @@ export default function App() {
       `}</style>
 
       <header className="top">
-        <h1 className="title">סורק המסחר Freedom V60</h1>
+        <h1 className="title">סורק המסחר Freedom V61</h1>
         <div className="subtitle">
-          Manual Ticker Mode — Stable Final Version + Continuation
+          Manual Ticker Mode — Continuation Logic Fixed
         </div>
       </header>
 
