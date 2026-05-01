@@ -1,7 +1,17 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import "./style.css";
 
 type Status = "READY" | "BASE" | "HOT" | "CONTINUATION" | "AVOID";
+
+type CandleResponse = {
+  c: number[];
+  h: number[];
+  l: number[];
+  o: number[];
+  v: number[];
+  t: number[];
+  s: string;
+};
 
 type Row = {
   ticker: string;
@@ -20,62 +30,125 @@ type Row = {
   action: string;
 };
 
-const stockMap: Record<string, Row> = {
-  ACRS: {
-    ticker: "ACRS",
-    price: "4.36",
-    change5d: "3.10%",
-    range: "12.40%",
-    compression: "YES",
-    higherLows: "YES",
-    nearHigh: "YES",
-    score: 72,
-    status: "CONTINUATION",
-    setup: "Pullback Continuation / המשכיות",
-    entryZone: "$3.80 – $4.20",
-    invalidation: "$3.50",
-    trigger: "Mini base / Break above $4.70",
-    action: "להמתין לאישור",
-  },
+function avg(arr: number[]) {
+  if (!arr.length) return 0;
+  return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
 
-  UAMY: {
-    ticker: "UAMY",
-    price: "12.02",
-    change5d: "6.40%",
-    range: "8.00%",
-    compression: "YES",
-    higherLows: "YES",
-    nearHigh: "YES",
-    score: 78,
-    status: "CONTINUATION",
-    setup: "Range Breakout Attempt / המשכיות",
-    entryZone: "$10.80 – $11.30",
-    invalidation: "$9.55",
-    trigger: "Close above $12.20–$12.50 with volume",
-    action: "לא לרדוף — לחכות לאישור",
-  },
-};
+function ma(values: number[], length: number) {
+  if (values.length < length) return 0;
+  return avg(values.slice(-length));
+}
 
-function analyzeTicker(tickerRaw: string): Row {
-  const ticker = tickerRaw.toUpperCase().trim();
+function pct(a: number, b: number) {
+  if (!b) return 0;
+  return ((a - b) / b) * 100;
+}
 
-  if (stockMap[ticker]) return stockMap[ticker];
+function analyzeCandles(ticker: string, data: CandleResponse): Row {
+  const closes = data.c;
+  const highs = data.h;
+  const lows = data.l;
+  const vols = data.v;
 
+  const last = closes[closes.length - 1];
+  const prev5 = closes[closes.length - 6] || closes[0];
+
+  const ma20 = ma(closes, 20);
+  const ma50 = ma(closes, 50);
+  const ma150 = ma(closes, 150);
+
+  const last20High = Math.max(...highs.slice(-20));
+  const last20Low = Math.min(...lows.slice(-20));
+  const rangePct = pct(last20High, last20Low);
+
+  const nearHigh = last >= last20High * 0.92;
+  const higherLows =
+    lows[lows.length - 1] > lows[lows.length - 6] &&
+    lows[lows.length - 6] > lows[lows.length - 12];
+
+  const compression = rangePct <= 18;
+  const volAvg20 = avg(vols.slice(-20));
+  const volumeSpike = vols[vols.length - 1] > volAvg20 * 1.7;
+
+  const aboveMA50 = last > ma50;
+  const strongTrend = ma20 > ma50 && last > ma20;
+  const longTrend = ma50 > ma150 || last > ma150;
+
+  let score = 0;
+  if (aboveMA50) score += 15;
+  if (strongTrend) score += 20;
+  if (longTrend) score += 15;
+  if (higherLows) score += 20;
+  if (nearHigh) score += 15;
+  if (compression) score += 10;
+  if (volumeSpike) score += 10;
+
+  let status: Status = "AVOID";
+  let setup = "Avoid / Broken or Extended";
+  let trigger = "Needs new structure";
+  let action = "להתרחק";
+
+  if (score >= 80 && volumeSpike && nearHigh) {
+    status = "READY";
+    setup = "Breakout + Volume / פריצה עם ווליום";
+    trigger = "Hold above breakout level";
+    action = "מעקב לכניסה — לא לרדוף";
+  } else if (score >= 65 && nearHigh && higherLows && aboveMA50) {
+    status = "CONTINUATION";
+    setup = "Pullback Continuation / המשכיות";
+    trigger = "Mini base / Close above range high";
+    action = "להמתין לאישור";
+  } else if (score >= 55 && compression && nearHigh) {
+    status = "BASE";
+    setup = "Base / Range High";
+    trigger = "Reclaim range high";
+    action = "לסמן ריינג׳ ולחכות";
+  } else if (score >= 50 && volumeSpike) {
+    status = "HOT";
+    setup = "Hot Momentum / תנועה חמה";
+    trigger = "Second day confirmation";
+    action = "לא לרדוף — לבדוק המשכיות";
+  }
+
+  const entryLow = last * 0.92;
+  const entryHigh = last * 0.98;
+  const invalidation = Math.min(...lows.slice(-10));
+
+  return {
+    ticker,
+    price: `$${last.toFixed(2)}`,
+    change5d: `${pct(last, prev5).toFixed(2)}%`,
+    range: `${rangePct.toFixed(2)}%`,
+    compression: compression ? "YES" : "NO",
+    higherLows: higherLows ? "YES" : "NO",
+    nearHigh: nearHigh ? "YES" : "NO",
+    score,
+    status,
+    setup,
+    entryZone: `$${entryLow.toFixed(2)} – $${entryHigh.toFixed(2)}`,
+    invalidation: `$${invalidation.toFixed(2)}`,
+    trigger,
+    action,
+  };
+}
+
+function fallbackRow(ticker: string): Row {
   return {
     ticker,
     price: "-",
     change5d: "0.00%",
     range: "0.00%",
-    compression: "UNKNOWN",
-    higherLows: "UNKNOWN",
-    nearHigh: "UNKNOWN",
+    compression: "NO DATA",
+    higherLows: "NO DATA",
+    nearHigh: "NO DATA",
     score: 0,
     status: "AVOID",
-    setup: "Avoid / Broken or Extended",
-    entryZone: "$0.00 – $0.00",
-    invalidation: "$0.00",
-    trigger: "Needs new structure",
-    action: "להתרחק",
+    setup: "No live data / אין נתונים",
+    entryZone: "-",
+    invalidation: "-",
+    trigger: "Check API key / ticker",
+    action: "לא לנתח בלי דאטה",
   };
 }
 
@@ -92,8 +165,40 @@ function statusClass(status: Status) {
 }
 
 export default function App() {
-  const [ticker, setTicker] = useState("UAMY");
-  const [rows, setRows] = useState<Row[]>([analyzeTicker("UAMY")]);
+  const [apiKey, setApiKey] = useState(localStorage.getItem("finnhubKey") || "");
+  const [ticker, setTicker] = useState("DNA");
+  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState<Row[]>([]);
+
+  useEffect(() => {
+    if (apiKey) localStorage.setItem("finnhubKey", apiKey);
+  }, [apiKey]);
+
+  async function analyzeTicker() {
+    const symbol = ticker.toUpperCase().trim();
+    if (!symbol || !apiKey) return;
+
+    setLoading(true);
+
+    try {
+      const to = Math.floor(Date.now() / 1000);
+      const from = to - 60 * 60 * 24 * 260;
+
+      const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${apiKey}`;
+      const res = await fetch(url);
+      const data: CandleResponse = await res.json();
+
+      if (!data || data.s !== "ok" || !data.c?.length) {
+        setRows([fallbackRow(symbol)]);
+      } else {
+        setRows([analyzeCandles(symbol, data)]);
+      }
+    } catch {
+      setRows([fallbackRow(symbol)]);
+    }
+
+    setLoading(false);
+  }
 
   const counts = rows.reduce(
     (acc, r) => {
@@ -114,6 +219,7 @@ export default function App() {
         .input-row { display:flex; gap:12px; padding:16px; border-bottom:1px solid #222; direction:ltr; }
         .input-row input { flex:1; background:#1a1a1a; color:white; border:1px solid #333; padding:12px; font-size:16px; text-align:right; }
         .input-row button { background:#d8b62f; border:0; color:#000; font-weight:700; padding:0 18px; border-radius:9px; cursor:pointer; }
+        .input-row button:disabled { opacity:0.5; cursor:not-allowed; }
         .cards { display:grid; grid-template-columns:1fr; gap:0; }
         .card { background:#111; border:1px solid #2b2b2b; border-radius:12px; min-height:58px; padding:14px 30px; text-align:right; }
         .ready { color:#00ff8a; }
@@ -135,15 +241,28 @@ export default function App() {
       `}</style>
 
       <header className="top">
-        <h1 className="title">סורק המסחר Freedom V61</h1>
+        <h1 className="title">סורק המסחר Freedom V70</h1>
         <div className="subtitle">
-          Manual Ticker Mode — Continuation Logic Fixed
+          Live Data Mode — Finnhub + Wyckoff/VPA Logic
         </div>
       </header>
 
       <div className="input-row">
-        <button onClick={() => setRows([analyzeTicker(ticker)])}>Analyze</button>
-        <input value={ticker} onChange={(e) => setTicker(e.target.value)} />
+        <button onClick={analyzeTicker} disabled={loading}>
+          {loading ? "Loading..." : "Analyze"}
+        </button>
+
+        <input
+          placeholder="Ticker"
+          value={ticker}
+          onChange={(e) => setTicker(e.target.value)}
+        />
+
+        <input
+          placeholder="Finnhub API Key"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+        />
       </div>
 
       <section className="cards">
