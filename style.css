@@ -191,3 +191,15 @@ th {
 .row-avoid {
   background: rgba(239, 68, 68, 0.08);
 }
+body {
+  direction: rtl;
+  text-align: right;
+}
+
+table {
+  direction: rtl;
+}
+
+th, td {
+  text-align: right;
+}
