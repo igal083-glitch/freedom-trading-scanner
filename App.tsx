@@ -143,6 +143,12 @@ export default function App() {
     };
   }, [rows]);
 const statusMap: any = {
+const actionMap: any = {
+  "Ready — wait for trigger": "מוכן — חכה לאישור",
+  "Track — not ready yet": "מעקב — עדיין לא מוכן",
+  "No entry now": "אין כניסה כרגע",
+  "Stay away": "להתרחק",
+};
   READY: "מוכן",
   BASE: "בסיס",
   HOT: "חם",
