@@ -142,18 +142,20 @@ export default function App() {
       avoid: rows.filter((r) => r.status === 'AVOID').length,
     };
   }, [rows]);
-const statusMap: any = {
-const actionMap: any = {
-  "Ready — wait for trigger": "מוכן — חכה לאישור",
-  "Track — not ready yet": "מעקב — עדיין לא מוכן",
-  "No entry now": "אין כניסה כרגע",
-  "Stay away": "להתרחק",
-};
+const statusMap: Record<string, string> = {
   READY: "מוכן",
   BASE: "בסיס",
   HOT: "חם",
   AVOID: "להימנע",
 };
+
+const actionMap: Record<string, string> = {
+  "Ready — wait for trigger": "מוכן — חכה לאישור",
+  "Track — not ready yet": "מעקב — עדיין לא מוכן",
+  "No entry now": "אין כניסה כרגע",
+  "Stay away": "להתרחק",
+};
+
   return (
     <div className="app">
       <h1>סורק המסחר Freedom V59</h1>
