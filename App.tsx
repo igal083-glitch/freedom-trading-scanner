@@ -215,7 +215,7 @@ const actionMap: any = {
               <td>{r.entryZone}</td>
               <td>{r.invalidation}</td>
               <td>{r.trigger}</td>
-              <td>{r.action}</td>
+              <td>{actionMap[r.action] || r.action}</td>
               <td>
                 <a
                   href={`https://www.tradingview.com/chart/?symbol=${r.symbol}`}
