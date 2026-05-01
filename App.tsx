@@ -1,236 +1,263 @@
-import React, { useMemo, useState } from 'react';
-import './style.css';
+import React, { useMemo, useState } from "react";
+import "./style.css";
 
-type Status = 'READY' | 'BASE' | 'HOT' | 'AVOID';
+type Status = "READY" | "APPROACHING" | "CONTINUATION" | "BASE" | "AVOID";
 
-type Row = {
-  symbol: string;
+type Stock = {
+  ticker: string;
   price: number;
-  changePct: number;
-  rangePct: number;
-  compression: string;
-  higherLows: string;
-  nearHigh: string;
-  score: number;
-  status: Status;
-  setup: string;
-  entryZone: string;
-  invalidation: string;
-  trigger: string;
-  action: string;
+  change: number;
+  volumeSpike: boolean;
+  breakout: boolean;
+  pullback: boolean;
+  strongTrend: boolean;
+  base: boolean;
+  nearResistance: boolean;
+  aboveMA50: boolean;
+  higherLow: boolean;
 };
 
-const MOCK_LIBRARY: Record<string, Row> = {
-  NVAX: makeRow('NVAX', 7.92, -0.56, 4.35, 'NO', 'NO', 'NO', 42, 'AVOID'),
-  FOSL: makeRow('FOSL', 4.43, -0.23, 3.39, 'YES', 'YES', 'NO', 72, 'BASE'),
-  UUUU: makeRow('UUUU', 21.64, 10.52, 8.13, 'YES', 'YES', 'NO', 61, 'HOT'),
-  HNST: makeRow('HNST', 3.5, 5.74, 6.0, 'YES', 'YES', 'YES', 86, 'READY'),
-  SLDB: makeRow('SLDB', 7.26, 2.98, 3.86, 'YES', 'YES', 'YES', 91, 'READY'),
-  APPS: makeRow('APPS', 3.53, 4.75, 6.52, 'YES', 'YES', 'YES', 82, 'READY'),
-  PLUG: makeRow('PLUG', 3.13, -8.21, 12.14, 'NO', 'NO', 'NO', 18, 'AVOID'),
-  DNA: makeRow('DNA', 8.46, 12.8, 12.94, 'NO', 'YES', 'YES', 35, 'AVOID'),
-};
+const stocks: Stock[] = [
+  {
+    ticker: "ACRS",
+    price: 4.36,
+    change: 3.1,
+    volumeSpike: false,
+    breakout: false,
+    pullback: true,
+    strongTrend: true,
+    base: false,
+    nearResistance: true,
+    aboveMA50: true,
+    higherLow: true,
+  },
+  {
+    ticker: "NVAX",
+    price: 8.72,
+    change: 5.4,
+    volumeSpike: true,
+    breakout: true,
+    pullback: false,
+    strongTrend: true,
+    base: false,
+    nearResistance: false,
+    aboveMA50: true,
+    higherLow: true,
+  },
+  {
+    ticker: "FOSL",
+    price: 2.14,
+    change: 1.8,
+    volumeSpike: false,
+    breakout: false,
+    pullback: true,
+    strongTrend: true,
+    base: true,
+    nearResistance: true,
+    aboveMA50: true,
+    higherLow: true,
+  },
+  {
+    ticker: "GERN",
+    price: 1.51,
+    change: -2.2,
+    volumeSpike: false,
+    breakout: false,
+    pullback: false,
+    strongTrend: false,
+    base: false,
+    nearResistance: false,
+    aboveMA50: false,
+    higherLow: false,
+  },
+  {
+    ticker: "HNST",
+    price: 3.42,
+    change: 2.6,
+    volumeSpike: false,
+    breakout: false,
+    pullback: true,
+    strongTrend: true,
+    base: false,
+    nearResistance: true,
+    aboveMA50: true,
+    higherLow: true,
+  },
+];
 
-function money(n: number) {
-  return `$${n.toFixed(2)}`;
+function getStatus(stock: Stock): Status {
+  if (stock.breakout && stock.volumeSpike && stock.strongTrend) return "READY";
+
+  if (
+    stock.pullback &&
+    stock.strongTrend &&
+    stock.aboveMA50 &&
+    stock.higherLow &&
+    stock.nearResistance
+  ) {
+    return "CONTINUATION";
+  }
+
+  if (stock.base && stock.nearResistance && stock.aboveMA50) return "BASE";
+
+  if (stock.pullback && stock.strongTrend) return "APPROACHING";
+
+  return "AVOID";
 }
 
-function makeRow(
-  symbol: string,
-  price: number,
-  changePct: number,
-  rangePct: number,
-  compression: string,
-  higherLows: string,
-  nearHigh: string,
-  score: number,
-  status: Status
-): Row {
-  let setup = 'Avoid';
-  let trigger = 'No trigger';
-  let action = 'Do nothing';
-  let entryLow = price * 0.97;
-  let entryHigh = price * 1.01;
-  let invalidation = price * 0.92;
-
-  if (status === 'READY') {
-    setup = 'Ready Base / Near Breakout';
-    entryLow = price * 0.99;
-    entryHigh = price * 1.02;
-    invalidation = price * 0.93;
-    trigger = `Break/reclaim above ${money(entryHigh)}`;
-    action = 'Ready — wait for trigger';
+function getStatusText(status: Status) {
+  switch (status) {
+    case "READY":
+      return "READY / מוכן";
+    case "CONTINUATION":
+      return "CONTINUATION / המשכיות";
+    case "BASE":
+      return "BASE / בסיס";
+    case "APPROACHING":
+      return "APPROACHING / מתקרב";
+    case "AVOID":
+      return "AVOID / הימנע";
   }
-
-  if (status === 'BASE') {
-    setup = 'Base Building';
-    entryLow = price * 0.94;
-    entryHigh = price * 1.01;
-    invalidation = price * 0.91;
-    trigger = `Reclaim range high ${money(entryHigh)}`;
-    action = 'Track — not ready yet';
-  }
-
-  if (status === 'HOT') {
-    setup = 'Hot / No Chase';
-    entryLow = price * 0.92;
-    entryHigh = price * 0.96;
-    invalidation = price * 0.88;
-    trigger = '1–3 day consolidation';
-    action = 'No entry now';
-  }
-
-  if (status === 'AVOID') {
-    setup = 'Avoid / Broken or Extended';
-    trigger = 'Needs new structure';
-    action = 'Stay away';
-  }
-
-  return {
-    symbol,
-    price,
-    changePct,
-    rangePct,
-    compression,
-    higherLows,
-    nearHigh,
-    score,
-    status,
-    setup,
-    entryZone: `${money(entryLow)} - ${money(entryHigh)}`,
-    invalidation: money(invalidation),
-    trigger,
-    action,
-  };
 }
 
-function buildFallback(symbol: string): Row {
-  return makeRow(symbol, 0, 0, 0, 'UNKNOWN', 'UNKNOWN', 'UNKNOWN', 0, 'AVOID');
+function getStatusClass(status: Status) {
+  switch (status) {
+    case "READY":
+      return "status ready";
+    case "CONTINUATION":
+      return "status continuation";
+    case "BASE":
+      return "status base";
+    case "APPROACHING":
+      return "status approaching";
+    case "AVOID":
+      return "status avoid";
+  }
+}
+
+function getSetup(stock: Stock) {
+  const status = getStatus(stock);
+
+  if (status === "READY") return "Breakout + Volume";
+  if (status === "CONTINUATION") return "Pullback Continuation";
+  if (status === "BASE") return "Base / Range High";
+  if (status === "APPROACHING") return "Watching Pullback";
+  return "No Clean Setup";
+}
+
+function getAction(stock: Stock) {
+  const status = getStatus(stock);
+
+  if (status === "READY") return "אפשר מעקב לכניסה — לא לרדוף בגאפ";
+  if (status === "CONTINUATION") return "לחכות ל־mini base או pullback קטן";
+  if (status === "BASE") return "לסמן range high ולחכות reclaim";
+  if (status === "APPROACHING") return "מעניין אבל צריך עוד הוכחה";
+  return "לא מתאים כרגע לשיטה";
 }
 
 export default function App() {
-  const [input, setInput] = useState('NVAX,FOSL,UUUU,HNST,SLDB,APPS');
-  const [rows, setRows] = useState<Row[]>([]);
+  const [filter, setFilter] = useState<"ALL" | Status>("ALL");
 
-  function analyzeManual() {
-    const tickers = input
-      .split(',')
-      .map((t) => t.trim().toUpperCase())
-      .filter(Boolean);
-
-    const result = tickers.map((ticker) => {
-      return MOCK_LIBRARY[ticker] || buildFallback(ticker);
-    });
-
-    const rank = { READY: 4, BASE: 3, HOT: 2, AVOID: 1 };
-
-    setRows(
-      result.sort((a, b) => {
-        if (rank[b.status] !== rank[a.status]) {
-          return rank[b.status] - rank[a.status];
-        }
-        return b.score - a.score;
-      })
-    );
-  }
-
-  const counts = useMemo(() => {
-    return {
-      ready: rows.filter((r) => r.status === 'READY').length,
-      base: rows.filter((r) => r.status === 'BASE').length,
-      hot: rows.filter((r) => r.status === 'HOT').length,
-      avoid: rows.filter((r) => r.status === 'AVOID').length,
-    };
-  }, [rows]);
-const statusMap: Record<string, string> = {
-  READY: "מוכן",
-  BASE: "בסיס",
-  HOT: "חם",
-  AVOID: "להימנע",
-};
-
-const actionMap: Record<string, string> = {
-  "Ready — wait for trigger": "מוכן — חכה לאישור",
-  "Track — not ready yet": "מעקב — עדיין לא מוכן",
-  "No entry now": "אין כניסה כרגע",
-  "Stay away": "להתרחק",
-};
+  const rows = useMemo(() => {
+    return stocks
+      .map((s) => ({ ...s, status: getStatus(s) }))
+      .filter((s) => filter === "ALL" || s.status === filter);
+  }, [filter]);
 
   return (
     <div className="app">
-      <h1>סורק המסחר Freedom V59</h1>
-      <p>Manual Ticker Mode — Stable Final Version</p>
+      <header className="hero">
+        <div>
+          <h1>Freedom Trading Scanner V60</h1>
+          <p>Wyckoff + VPA Scanner | Continuation Mode Added</p>
+        </div>
+        <div className="version">V60</div>
+      </header>
 
-      <input
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        placeholder="NVAX,FOSL,UUUU,HNST"
-      />
-
-      <div className="controls">
-        <button onClick={analyzeManual}>Analyze</button>
-      </div>
-
-      <section className="summary">
-        <div className="card green">Ready: {counts.ready}</div>
-        <div className="card yellow">Base: {counts.base}</div>
-        <div className="card yellow">Hot: {counts.hot}</div>
-        <div className="card red">Avoid: {counts.avoid}</div>
+      <section className="panel">
+        <h2>מצב חדש שנוסף</h2>
+        <p>
+          🟠 <b>CONTINUATION</b> — מניה שלא פרצה עדיין, אבל המבנה חיובי:
+          מעל MA50, יש Higher Low, יש Pullback מבוקר והיא קרובה להתנגדות.
+        </p>
       </section>
 
-      <table className="scanner">
-        <thead>
-          <tr>
-            <th> מניה Ticker</th>
-            <th> מחיר Price</th>
-            <th>  שינוי 5 ימים 5D Change</th>
-            <th> תווך Range</th>
-            <th> דחיסה Compression</th>
-            <th>Higher Lows</th>
-            <th>Near High</th>
-            <th>  ציון core</th>
-            <th>Status</th>
-            <th> תבנית Setup</th>
-            <th>Entry Zone</th>
-            <th>Invalidation</th>
-            <th>Trigger</th>
-            <th>Action</th>
-            <th>Chart</th>
-          </tr>
-        </thead>
+      <div className="filters">
+        {["ALL", "READY", "CONTINUATION", "BASE", "APPROACHING", "AVOID"].map(
+          (f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f as "ALL" | Status)}
+              className={filter === f ? "active" : ""}
+            >
+              {f}
+            </button>
+          )
+        )}
+      </div>
 
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.symbol} className={`row-${r.status.toLowerCase()}`}>
-              <td className="ticker">{r.symbol}</td>
-              <td>{r.price ? money(r.price) : '-'}</td>
-              <td>{r.changePct.toFixed(2)}%</td>
-              <td>{r.rangePct.toFixed(2)}%</td>
-              <td>{r.compression}</td>
-              <td>{r.higherLows}</td>
-              <td>{r.nearHigh}</td>
-              <td>{r.score}</td>
-              <span className={`status-badge ${r.status.toLowerCase()}`}>
- {statusMap[r.status] || r.status}
-</span>
-              <td>{r.setup}</td>
-              <td>{r.entryZone}</td>
-              <td>{r.invalidation}</td>
-              <td>{r.trigger}</td>
-              <td>{actionMap[r.action] || r.action}</td>
-              <td>
-                <a
-                  href={`https://www.tradingview.com/chart/?symbol=${r.symbol}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open
-                </a>
-              </td>
+      <section className="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Price</th>
+              <th>Change</th>
+              <th>Status</th>
+              <th>Setup</th>
+              <th>Signals</th>
+              <th>Action</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {rows.map((stock) => {
+              const status = stock.status;
+
+              return (
+                <tr key={stock.ticker}>
+                  <td className="ticker">
+                    <a
+                      href={`https://www.tradingview.com/chart/?symbol=${stock.ticker}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {stock.ticker}
+                    </a>
+                  </td>
+
+                  <td>${stock.price.toFixed(2)}</td>
+
+                  <td className={stock.change >= 0 ? "green" : "red"}>
+                    {stock.change >= 0 ? "+" : ""}
+                    {stock.change.toFixed(1)}%
+                  </td>
+
+                  <td>
+                    <span className={getStatusClass(status)}>
+                      {getStatusText(status)}
+                    </span>
+                  </td>
+
+                  <td>{getSetup(stock)}</td>
+
+                  <td className="signals">
+                    {stock.volumeSpike && <span>Volume Spike</span>}
+                    {stock.breakout && <span>Breakout</span>}
+                    {stock.pullback && <span>Pullback</span>}
+                    {stock.strongTrend && <span>Strong Trend</span>}
+                    {stock.base && <span>Base</span>}
+                    {stock.nearResistance && <span>Near Resistance</span>}
+                    {stock.higherLow && <span>Higher Low</span>}
+                  </td>
+
+                  <td>{getAction(stock)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </section>
     </div>
   );
 }
