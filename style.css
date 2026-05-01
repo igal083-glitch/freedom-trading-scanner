@@ -176,3 +176,18 @@ th {
   background: #9b1c1c;
   color: #ffffff;
 }
+.row-ready {
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.row-base {
+  background: rgba(234, 179, 8, 0.08);
+}
+
+.row-hot {
+  background: rgba(249, 115, 22, 0.08);
+}
+
+.row-avoid {
+  background: rgba(239, 68, 68, 0.08);
+}
