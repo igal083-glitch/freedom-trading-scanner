@@ -197,7 +197,9 @@ export default function App() {
               <td>{r.higherLows}</td>
               <td>{r.nearHigh}</td>
               <td>{r.score}</td>
-              <td>{r.status}</td>
+              <span className={`status-badge ${r.status.toLowerCase()}`}>
+  {r.status}
+</span>
               <td>{r.setup}</td>
               <td>{r.entryZone}</td>
               <td>{r.invalidation}</td>
