@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="he">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Freedom Trading Scanner V11</title>
+
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial;
+        background: #0b0b0b;
+        color: #eee;
+      }
+
+      header {
+        background: #111;
+        padding: 15px;
+        text-align: center;
+        font-size: 22px;
+        color: #d4af37;
+        border-bottom: 1px solid #333;
+      }
+
+      .container {
+        display: flex;
+        gap: 20px;
+        padding: 20px;
+      }
+
+      .panel {
+        flex: 1;
+        background: #121212;
+        border: 1px solid #222;
+        border-radius: 10px;
+        padding: 15px;
+      }
+
+      h2 {
+        color: #d4af37;
+      }
+
+      input {
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 10px;
+        background: #1c1c1c;
+        border: 1px solid #333;
+        color: white;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 8px;
+        text-align: center;
+        border-bottom: 1px solid #222;
+      }
+
+      .green {
+        color: #00ff9c;
+      }
+      .red {
+        color: #ff4d4d;
+      }
+
+      .badge {
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+      }
+
+      .ready {
+        background: #003d2b;
+        color: #00ff9c;
+      }
+      .almost {
+        background: #3d2f00;
+        color: #ffd700;
+      }
+      .no {
+        background: #3d0000;
+        color: #ff4d4d;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>Freedom Trading Scanner V11</header>
+
+    <div class="container">
+      <div class="panel">
+        <h2>📊 My Positions</h2>
+
+        <input
+          id="searchPositions"
+          placeholder="חפש מניה..."
+          onkeyup="filterPositions()"
+        />
+
+        <table id="positionsTable">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Entry</th>
+              <th>Price</th>
+              <th>P/L %</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2>🔎 Smart Scanner</h2>
+
+        <input
+          id="searchScanner"
+          placeholder="חפש מניה..."
+          onkeyup="filterScanner()"
+        />
+
+        <table id="scannerTable">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Setup</th>
+              <th>Volume</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      let positions = [
+        { ticker: 'NVAX', entry: 8.5, price: 10.2, status: 'RUN' },
+        { ticker: 'FOSL', entry: 1.6, price: 3.9, status: 'STRONG' },
+        { ticker: 'PLUG', entry: 4.1, price: 3.7, status: 'WEAK' },
+      ];
+
+      let scanner = [
+        { ticker: 'XFOR', setup: 'Pullback', volume: 85, status: 'READY' },
+        { ticker: 'ABSI', setup: 'Breakout', volume: 70, status: 'ALMOST' },
+        { ticker: 'DNA', setup: 'Range', volume: 40, status: 'NO' },
+      ];
+
+      function renderPositions() {
+        let tbody = document.querySelector('#positionsTable tbody');
+        tbody.innerHTML = '';
+
+        positions.forEach((p) => {
+          let pl = (((p.price - p.entry) / p.entry) * 100).toFixed(1);
+          let color = pl > 0 ? 'green' : 'red';
+
+          tbody.innerHTML += `
+        <tr>
+            <td>${p.ticker}</td>
+            <td>${p.entry}</td>
+            <td>${p.price}</td>
+            <td class="${color}">${pl}%</td>
+            <td>${p.status}</td>
+        </tr>`;
+        });
+      }
+
+      function renderScanner() {
+        let tbody = document.querySelector('#scannerTable tbody');
+        tbody.innerHTML = '';
+
+        scanner.forEach((s) => {
+          let badgeClass =
+            s.status === 'READY'
+              ? 'ready'
+              : s.status === 'ALMOST'
+              ? 'almost'
+              : 'no';
+
+          tbody.innerHTML += `
+        <tr>
+            <td>${s.ticker}</td>
+            <td>${s.setup}</td>
+            <td>${s.volume}</td>
+            <td><span class="badge ${badgeClass}">${s.status}</span></td>
+        </tr>`;
+        });
+      }
+
+      function filterPositions() {
+        let value = document
+          .getElementById('searchPositions')
+          .value.toLowerCase();
+        document.querySelectorAll('#positionsTable tbody tr').forEach((row) => {
+          row.style.display = row.innerText.toLowerCase().includes(value)
+            ? ''
+            : 'none';
+        });
+      }
+
+      function filterScanner() {
+        let value = document
+          .getElementById('searchScanner')
+          .value.toLowerCase();
+        document.querySelectorAll('#scannerTable tbody tr').forEach((row) => {
+          row.style.display = row.innerText.toLowerCase().includes(value)
+            ? ''
+            : 'none';
+        });
+      }
+
+      renderPositions();
+      renderScanner();
+    </script>
+  </body>
+</html>
