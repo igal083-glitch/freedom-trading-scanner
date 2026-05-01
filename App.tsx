@@ -20,12 +20,12 @@ type Row = {
   action: string;
 };
 
-function avg(a: number[]) {
-  return a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
+function avg(arr: number[]) {
+  return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 }
 
-function ma(a: number[], n: number) {
-  return a.length >= n ? avg(a.slice(-n)) : 0;
+function ma(arr: number[], n: number) {
+  return arr.length >= n ? avg(arr.slice(-n)) : 0;
 }
 
 function pct(a: number, b: number) {
@@ -33,26 +33,40 @@ function pct(a: number, b: number) {
 }
 
 async function fetchYahoo(symbol: string) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1y&interval=1d`;
+  const res = await fetch(`/api/data?symbol=${symbol}`);
+  if (!res.ok) throw new Error("API failed");
+  return res.json();
+}
 
-  const direct = await fetch(url);
-  if (direct.ok) return direct.json();
-
-  const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-  const proxied = await fetch(proxy);
-  return proxied.json();
+function fallback(symbol: string): Row {
+  return {
+    ticker: symbol,
+    price: "-",
+    change5d: "0.00%",
+    range: "0.00%",
+    compression: "NO DATA",
+    higherLows: "NO DATA",
+    nearHigh: "NO DATA",
+    score: 0,
+    status: "AVOID",
+    setup: "No live data / אין נתונים",
+    entryZone: "-",
+    invalidation: "-",
+    trigger: "Check proxy / ticker",
+    action: "לא לנתח בלי דאטה",
+  };
 }
 
 function analyze(symbol: string, json: any): Row {
   const result = json?.chart?.result?.[0];
   const q = result?.indicators?.quote?.[0];
 
-  const closes: number[] = q?.close?.filter((x: number | null) => x !== null) || [];
-  const highs: number[] = q?.high?.filter((x: number | null) => x !== null) || [];
-  const lows: number[] = q?.low?.filter((x: number | null) => x !== null) || [];
-  const vols: number[] = q?.volume?.filter((x: number | null) => x !== null) || [];
+  const closes: number[] = (q?.close || []).filter((x: number | null) => x !== null);
+  const highs: number[] = (q?.high || []).filter((x: number | null) => x !== null);
+  const lows: number[] = (q?.low || []).filter((x: number | null) => x !== null);
+  const vols: number[] = (q?.volume || []).filter((x: number | null) => x !== null);
 
-  if (closes.length < 60) return fallback(symbol, "No enough Yahoo data / אין מספיק דאטה");
+  if (closes.length < 60) return fallback(symbol);
 
   const last = closes[closes.length - 1];
   const prev5 = closes[closes.length - 6] || closes[0];
@@ -137,25 +151,6 @@ function analyze(symbol: string, json: any): Row {
   };
 }
 
-function fallback(symbol: string, reason = "No live data / אין נתונים"): Row {
-  return {
-    ticker: symbol,
-    price: "-",
-    change5d: "0.00%",
-    range: "0.00%",
-    compression: "NO DATA",
-    higherLows: "NO DATA",
-    nearHigh: "NO DATA",
-    score: 0,
-    status: "AVOID",
-    setup: reason,
-    entryZone: "-",
-    invalidation: "-",
-    trigger: "Check ticker / Yahoo data",
-    action: "לא לנתח בלי דאטה",
-  };
-}
-
 function statusHebrew(s: Status) {
   if (s === "READY") return "מוכן";
   if (s === "BASE") return "בסיס";
@@ -198,7 +193,7 @@ export default function App() {
         .scanner-page { min-height:100vh; background:#050505; color:white; direction:rtl; }
         .top { padding:12px 18px; border-bottom:1px solid #333; text-align:right; }
         .title { color:#d8b62f; font-size:30px; font-weight:800; margin:0; }
-        .subtitle { margin-top:22px; color:white; font-size:16px; }
+        .subtitle { margin-top:18px; color:white; font-size:16px; }
         .input-row { display:flex; gap:12px; padding:16px; border-bottom:1px solid #222; direction:ltr; }
         .input-row input { flex:1; background:#1a1a1a; color:white; border:1px solid #333; padding:12px; font-size:16px; text-align:right; }
         .input-row button { background:#d8b62f; border:0; color:#000; font-weight:700; padding:0 22px; border-radius:9px; cursor:pointer; }
@@ -223,8 +218,8 @@ export default function App() {
       `}</style>
 
       <header className="top">
-        <h1 className="title">סורק המסחר Freedom V70.1</h1>
-        <div className="subtitle">Live Yahoo Data — No API Key</div>
+        <h1 className="title">סורק המסחר Freedom V71</h1>
+        <div className="subtitle">Yahoo Live Data via Vercel Proxy</div>
       </header>
 
       <div className="input-row">
@@ -262,6 +257,7 @@ export default function App() {
             <th>Ticker מניה</th>
           </tr>
         </thead>
+
         <tbody>
           {rows.map((r) => (
             <tr key={r.ticker}>
