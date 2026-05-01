@@ -106,7 +106,31 @@ function analyze(symbol: string, json: any): Row {
   let setup = "Avoid / Broken or Extended";
   let trigger = "Needs new structure";
   let action = "להתרחק";
-
+if (score >= 80 && volumeSpike && nearHigh) {
+  status = "READY";
+  setup = "Breakout + Volume / פריצה עם ווליום";
+  trigger = "Hold above breakout level";
+  action = "מעקב לכניסה — לא לרדוף";
+}
+else if (score >= 65 && nearHigh && higherLows && aboveMA50) {
+  status = "CONTINUATION";
+  setup = "Pullback Continuation / המשכיות";
+  trigger = "Mini base / Close above range high";
+  action = "להמתין לאישור";
+}
+else if (score >= 55 && compression && nearHigh) {
+  status = "BASE";
+  setup = "Base / Range High";
+  trigger = "Reclaim range high";
+  action = "לסמן ריינג׳ ולחכות";
+}
+else if (score >= 60 && volumeSpike && !compression) {
+  // 🔥 חדש
+  status = "HOT";
+  setup = "Momentum Spike / תנועה חמה";
+  trigger = "Watch for continuation or pullback";
+  action = "לא לרדוף — לחכות להתייצבות";
+}
   if (score >= 80 && volumeSpike && nearHigh) {
     status = "READY";
     setup = "Breakout + Volume / פריצה עם ווליום";
