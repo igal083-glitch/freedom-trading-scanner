@@ -145,7 +145,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <h1>Freedom Trading Scanner V59</h1>
+      <h1>סורק המסחר Freedom V59</h1>
       <p>Manual Ticker Mode — Stable Final Version</p>
 
       <input
