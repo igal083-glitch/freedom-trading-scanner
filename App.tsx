@@ -1,17 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import "./style.css";
 
 type Status = "READY" | "BASE" | "HOT" | "CONTINUATION" | "AVOID";
-
-type CandleResponse = {
-  c: number[];
-  h: number[];
-  l: number[];
-  o: number[];
-  v: number[];
-  t: number[];
-  s: string;
-};
 
 type Row = {
   ticker: string;
@@ -30,26 +20,39 @@ type Row = {
   action: string;
 };
 
-function avg(arr: number[]) {
-  if (!arr.length) return 0;
-  return arr.reduce((a, b) => a + b, 0) / arr.length;
+function avg(a: number[]) {
+  return a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
 }
 
-function ma(values: number[], length: number) {
-  if (values.length < length) return 0;
-  return avg(values.slice(-length));
+function ma(a: number[], n: number) {
+  return a.length >= n ? avg(a.slice(-n)) : 0;
 }
 
 function pct(a: number, b: number) {
-  if (!b) return 0;
-  return ((a - b) / b) * 100;
+  return b ? ((a - b) / b) * 100 : 0;
 }
 
-function analyzeCandles(ticker: string, data: CandleResponse): Row {
-  const closes = data.c;
-  const highs = data.h;
-  const lows = data.l;
-  const vols = data.v;
+async function fetchYahoo(symbol: string) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1y&interval=1d`;
+
+  const direct = await fetch(url);
+  if (direct.ok) return direct.json();
+
+  const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+  const proxied = await fetch(proxy);
+  return proxied.json();
+}
+
+function analyze(symbol: string, json: any): Row {
+  const result = json?.chart?.result?.[0];
+  const q = result?.indicators?.quote?.[0];
+
+  const closes: number[] = q?.close?.filter((x: number | null) => x !== null) || [];
+  const highs: number[] = q?.high?.filter((x: number | null) => x !== null) || [];
+  const lows: number[] = q?.low?.filter((x: number | null) => x !== null) || [];
+  const vols: number[] = q?.volume?.filter((x: number | null) => x !== null) || [];
+
+  if (closes.length < 60) return fallback(symbol, "No enough Yahoo data / אין מספיק דאטה");
 
   const last = closes[closes.length - 1];
   const prev5 = closes[closes.length - 6] || closes[0];
@@ -58,16 +61,17 @@ function analyzeCandles(ticker: string, data: CandleResponse): Row {
   const ma50 = ma(closes, 50);
   const ma150 = ma(closes, 150);
 
-  const last20High = Math.max(...highs.slice(-20));
-  const last20Low = Math.min(...lows.slice(-20));
-  const rangePct = pct(last20High, last20Low);
+  const high20 = Math.max(...highs.slice(-20));
+  const low20 = Math.min(...lows.slice(-20));
+  const rangePct = pct(high20, low20);
 
-  const nearHigh = last >= last20High * 0.92;
+  const nearHigh = last >= high20 * 0.92;
+  const compression = rangePct <= 18;
+
   const higherLows =
     lows[lows.length - 1] > lows[lows.length - 6] &&
     lows[lows.length - 6] > lows[lows.length - 12];
 
-  const compression = rangePct <= 18;
   const volAvg20 = avg(vols.slice(-20));
   const volumeSpike = vols[vols.length - 1] > volAvg20 * 1.7;
 
@@ -116,7 +120,7 @@ function analyzeCandles(ticker: string, data: CandleResponse): Row {
   const invalidation = Math.min(...lows.slice(-10));
 
   return {
-    ticker,
+    ticker: symbol,
     price: `$${last.toFixed(2)}`,
     change5d: `${pct(last, prev5).toFixed(2)}%`,
     range: `${rangePct.toFixed(2)}%`,
@@ -133,9 +137,9 @@ function analyzeCandles(ticker: string, data: CandleResponse): Row {
   };
 }
 
-function fallbackRow(ticker: string): Row {
+function fallback(symbol: string, reason = "No live data / אין נתונים"): Row {
   return {
-    ticker,
+    ticker: symbol,
     price: "-",
     change5d: "0.00%",
     range: "0.00%",
@@ -144,66 +148,45 @@ function fallbackRow(ticker: string): Row {
     nearHigh: "NO DATA",
     score: 0,
     status: "AVOID",
-    setup: "No live data / אין נתונים",
+    setup: reason,
     entryZone: "-",
     invalidation: "-",
-    trigger: "Check API key / ticker",
+    trigger: "Check ticker / Yahoo data",
     action: "לא לנתח בלי דאטה",
   };
 }
 
-function statusHebrew(status: Status) {
-  if (status === "READY") return "מוכן";
-  if (status === "BASE") return "בסיס";
-  if (status === "HOT") return "חם";
-  if (status === "CONTINUATION") return "המשכיות";
+function statusHebrew(s: Status) {
+  if (s === "READY") return "מוכן";
+  if (s === "BASE") return "בסיס";
+  if (s === "HOT") return "חם";
+  if (s === "CONTINUATION") return "המשכיות";
   return "להימנע";
 }
 
-function statusClass(status: Status) {
-  return `status-pill ${status.toLowerCase()}`;
-}
-
 export default function App() {
-  const [apiKey, setApiKey] = useState(localStorage.getItem("finnhubKey") || "");
   const [ticker, setTicker] = useState("DNA");
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
 
-  useEffect(() => {
-    if (apiKey) localStorage.setItem("finnhubKey", apiKey);
-  }, [apiKey]);
-
-  async function analyzeTicker() {
+  async function run() {
     const symbol = ticker.toUpperCase().trim();
-    if (!symbol || !apiKey) return;
+    if (!symbol) return;
 
     setLoading(true);
-
     try {
-      const to = Math.floor(Date.now() / 1000);
-      const from = to - 60 * 60 * 24 * 260;
-
-      const url = `https://finnhub.io/api/v1/stock/candle?symbol=${symbol}&resolution=D&from=${from}&to=${to}&token=${apiKey}`;
-      const res = await fetch(url);
-      const data: CandleResponse = await res.json();
-
-      if (!data || data.s !== "ok" || !data.c?.length) {
-        setRows([fallbackRow(symbol)]);
-      } else {
-        setRows([analyzeCandles(symbol, data)]);
-      }
+      const json = await fetchYahoo(symbol);
+      setRows([analyze(symbol, json)]);
     } catch {
-      setRows([fallbackRow(symbol)]);
+      setRows([fallback(symbol)]);
     }
-
     setLoading(false);
   }
 
   const counts = rows.reduce(
-    (acc, r) => {
-      acc[r.status]++;
-      return acc;
+    (a, r) => {
+      a[r.status]++;
+      return a;
     },
     { READY: 0, BASE: 0, HOT: 0, CONTINUATION: 0, AVOID: 0 }
   );
@@ -211,16 +194,15 @@ export default function App() {
   return (
     <div className="scanner-page">
       <style>{`
-        body { margin:0; background:#050505; color:white; font-family: Arial, sans-serif; }
+        body { margin:0; background:#050505; color:white; font-family:Arial,sans-serif; }
         .scanner-page { min-height:100vh; background:#050505; color:white; direction:rtl; }
         .top { padding:12px 18px; border-bottom:1px solid #333; text-align:right; }
         .title { color:#d8b62f; font-size:30px; font-weight:800; margin:0; }
         .subtitle { margin-top:22px; color:white; font-size:16px; }
         .input-row { display:flex; gap:12px; padding:16px; border-bottom:1px solid #222; direction:ltr; }
         .input-row input { flex:1; background:#1a1a1a; color:white; border:1px solid #333; padding:12px; font-size:16px; text-align:right; }
-        .input-row button { background:#d8b62f; border:0; color:#000; font-weight:700; padding:0 18px; border-radius:9px; cursor:pointer; }
-        .input-row button:disabled { opacity:0.5; cursor:not-allowed; }
-        .cards { display:grid; grid-template-columns:1fr; gap:0; }
+        .input-row button { background:#d8b62f; border:0; color:#000; font-weight:700; padding:0 22px; border-radius:9px; cursor:pointer; }
+        .cards { display:grid; grid-template-columns:1fr; }
         .card { background:#111; border:1px solid #2b2b2b; border-radius:12px; min-height:58px; padding:14px 30px; text-align:right; }
         .ready { color:#00ff8a; }
         .base { color:#ffd400; }
@@ -232,37 +214,24 @@ export default function App() {
         td { padding:10px 14px; border-bottom:1px solid #1f1f1f; text-align:center; white-space:nowrap; }
         tbody tr { background:#180606; }
         a { color:#5d4bff; }
-        .status-pill { padding:6px 12px; border-radius:18px; font-weight:800; display:inline-block; }
-        .status-pill.ready { background:#06351e; color:#00ff8a; }
-        .status-pill.base { background:#3a3300; color:#ffd400; }
-        .status-pill.hot { background:#423600; color:#ffff00; }
-        .status-pill.continuation { background:#3b2200; color:#ff9f1a; }
-        .status-pill.avoid { background:#5a1515; color:#ffb0b0; }
+        .pill { padding:6px 12px; border-radius:18px; font-weight:800; display:inline-block; }
+        .pill.READY { background:#06351e; color:#00ff8a; }
+        .pill.BASE { background:#3a3300; color:#ffd400; }
+        .pill.HOT { background:#423600; color:#ffff00; }
+        .pill.CONTINUATION { background:#3b2200; color:#ff9f1a; }
+        .pill.AVOID { background:#5a1515; color:#ffb0b0; }
       `}</style>
 
       <header className="top">
-        <h1 className="title">סורק המסחר Freedom V70</h1>
-        <div className="subtitle">
-          Live Data Mode — Finnhub + Wyckoff/VPA Logic
-        </div>
+        <h1 className="title">סורק המסחר Freedom V70.1</h1>
+        <div className="subtitle">Live Yahoo Data — No API Key</div>
       </header>
 
       <div className="input-row">
-        <button onClick={analyzeTicker} disabled={loading}>
+        <button onClick={run} disabled={loading}>
           {loading ? "Loading..." : "Analyze"}
         </button>
-
-        <input
-          placeholder="Ticker"
-          value={ticker}
-          onChange={(e) => setTicker(e.target.value)}
-        />
-
-        <input
-          placeholder="Finnhub API Key"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-        />
+        <input value={ticker} onChange={(e) => setTicker(e.target.value)} />
       </div>
 
       <section className="cards">
@@ -293,16 +262,11 @@ export default function App() {
             <th>Ticker מניה</th>
           </tr>
         </thead>
-
         <tbody>
           {rows.map((r) => (
             <tr key={r.ticker}>
               <td>
-                <a
-                  href={`https://www.tradingview.com/chart/?symbol=${r.ticker}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a href={`https://www.tradingview.com/chart/?symbol=${r.ticker}`} target="_blank" rel="noreferrer">
                   Open
                 </a>
               </td>
@@ -311,11 +275,7 @@ export default function App() {
               <td>{r.invalidation}</td>
               <td>{r.entryZone}</td>
               <td>{r.setup}</td>
-              <td>
-                <span className={statusClass(r.status)}>
-                  {statusHebrew(r.status)}
-                </span>
-              </td>
+              <td><span className={`pill ${r.status}`}>{statusHebrew(r.status)}</span></td>
               <td>{r.score}</td>
               <td>{r.nearHigh}</td>
               <td>{r.higherLows}</td>
