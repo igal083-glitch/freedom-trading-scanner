@@ -203,7 +203,7 @@ const statusMap: any = {
               <td>{r.nearHigh}</td>
               <td>{r.score}</td>
               <span className={`status-badge ${r.status.toLowerCase()}`}>
-  {r.status}
+ {statusMap[r.status] || r.status}
 </span>
               <td>{r.setup}</td>
               <td>{r.entryZone}</td>
