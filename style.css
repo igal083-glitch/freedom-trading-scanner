@@ -149,3 +149,30 @@ th {
 .tableWrap td {
   white-space: nowrap;
 }
+.status-badge {
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-weight: bold;
+  font-size: 12px;
+  display: inline-block;
+}
+
+.status-badge.ready {
+  background: #0f7a3b;
+  color: #ffffff;
+}
+
+.status-badge.base {
+  background: #b89416;
+  color: #111111;
+}
+
+.status-badge.hot {
+  background: #b85c00;
+  color: #ffffff;
+}
+
+.status-badge.avoid {
+  background: #9b1c1c;
+  color: #ffffff;
+}
