@@ -142,7 +142,12 @@ export default function App() {
       avoid: rows.filter((r) => r.status === 'AVOID').length,
     };
   }, [rows]);
-
+const statusMap: any = {
+  READY: "מוכן",
+  BASE: "בסיס",
+  HOT: "חם",
+  AVOID: "להימנע",
+};
   return (
     <div className="app">
       <h1>סורק המסחר Freedom V59</h1>
