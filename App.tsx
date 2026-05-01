@@ -173,16 +173,16 @@ const statusMap: any = {
       <table className="scanner">
         <thead>
           <tr>
-            <th>Ticker</th>
-            <th>Price</th>
-            <th>5D Change</th>
-            <th>Range</th>
-            <th>Compression</th>
+            <th> מניה Ticker</th>
+            <th> מחיר Price</th>
+            <th>  שינוי 5 ימים 5D Change</th>
+            <th> תווך Range</th>
+            <th> דחיסה Compression</th>
             <th>Higher Lows</th>
             <th>Near High</th>
-            <th>Score</th>
+            <th>  ציון core</th>
             <th>Status</th>
-            <th>Setup</th>
+            <th> תבנית Setup</th>
             <th>Entry Zone</th>
             <th>Invalidation</th>
             <th>Trigger</th>
